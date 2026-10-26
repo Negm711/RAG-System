@@ -12,5 +12,5 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: pip install pydantic==2.11.10
-      - run: python -m compileall -q src scripts
+      - run: python -m compileall -q src scripts ui run_ui.py
       - run: python -m unittest discover -s tests -v

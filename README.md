@@ -98,3 +98,15 @@ GitHub Actions runs these checks on Python 3.10 and 3.12. These tests cover retr
 The core service dependencies remain pinned in `src/requirements.txt`. The optional reranker has a separate dependency file and explicit model download. It runs on CPU and does not require a paid inference service. Existing embedding and generation providers remain subject to their own quotas.
 
 The repository uses the Apache 2.0 license in [License](License). The optional cross-encoder is also distributed under Apache 2.0; its model card is downloaded alongside its weights.
+
+## Document workspace
+
+A local browser interface is available for uploading a document, preparing a new project and asking questions. Reranked answers include the context passages and available file/page metadata. The original vector-only answer path is available from the same screen.
+
+With the Docker API already running:
+
+```bash
+python run_ui.py
+```
+
+Open `http://127.0.0.1:7861`. The UI uses only Python's standard library and local HTML/CSS/JavaScript; it adds no packages to the API or worker environment. See [workspace operation](docs/workspace.md).
