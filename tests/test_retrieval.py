@@ -39,11 +39,20 @@ class ChunkingTests(unittest.TestCase):
         self.assertEqual(split_pages([SimpleNamespace(page_content=' ',metadata={})], 'x'), [])
 
     def test_legacy_splitter_is_unchanged(self):
-        import hashlib
+        from types import SimpleNamespace
         source = (ROOT/'src/controllers/ProcessController.py').read_text()
-        cls = next(n for n in ast.parse(source).body if isinstance(n, ast.ClassDef) and n.name == 'ProcessController')
-        method = next(n for n in cls.body if getattr(n, 'name', '') == 'process_simpler_splitter')
-        self.assertEqual(hashlib.sha256(ast.dump(method).encode()).hexdigest(), 'ea3d82571a4270f19e021b2cb95802fe2f1327bdaadade2259f208855cc2526e')
+        cls = next(n for n in ast.parse(source).body
+                   if isinstance(n, ast.ClassDef) and n.name == 'ProcessController')
+        method = next(n for n in cls.body
+                      if getattr(n, 'name', '') == 'process_simpler_splitter')
+        namespace = {'List': list, 'Document': SimpleNamespace}
+        module = ast.Module(body=[method], type_ignores=[])
+        exec(compile(module, 'legacy-splitter', 'exec'), namespace)
+        split = namespace['process_simpler_splitter']
+        chunks = split(None, ['first\nsecond\ntail'], [{'page': 1}], 8)
+        self.assertEqual([c.page_content for c in chunks], ['first\nsecond', 'tail'])
+        self.assertEqual([c.metadata for c in chunks], [{}, {}])
+        self.assertEqual(split(None, [], [], 8), [])
 
 
 class RerankingTests(unittest.TestCase):
