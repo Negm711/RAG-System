@@ -4,6 +4,21 @@ A document question-answering backend built with FastAPI and Celery. Upload a PD
 
 I use RabbitMQ to queue document work, Redis to store task results, and PostgreSQL with pgvector for semantic retrieval. Qdrant is also available through the vector-store interface. Embeddings and answers use configurable providers; the local Compose stack runs the supporting services on one machine.
 
+## Document workspace preview
+
+![Local document workspace answering a question from an uploaded project brief](docs/images/workspace.png)
+
+The local interface supports document upload, vector-only or reranked answers, and expandable context passages. This screenshot shows an answer from a synthetic project brief; it is a demonstration, not an accuracy benchmark.
+
+To reopen the workspace with the existing local configuration:
+
+```bash
+docker compose -f docker/docker-compose.yml -f docker/compose.rerank.yml up -d
+python run_ui.py
+```
+
+Open `http://127.0.0.1:7861` and keep the UI terminal running. Previously indexed documents can be queried again using their project ID.
+
 ## Request flow
 
 ```mermaid
