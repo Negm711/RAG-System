@@ -1,93 +1,100 @@
-# 🧠 RAG-System API
+# RAG System
 
-> A production-ready, cloud-native Retrieval-Augmented Generation (RAG) backend API engineered for high throughput, seamless scalability, and asynchronous document processing.
+A document question-answering backend built with FastAPI and Celery. Upload a PDF or text file, process and index it, then ask questions against that project's documents.
 
-## 🏗️ Architecture Overview
+I use RabbitMQ to queue document work, Redis to store task results, and PostgreSQL with pgvector for semantic retrieval. Qdrant is also available through the vector-store interface. Embeddings and answers use configurable providers; the local Compose stack runs the supporting services on one machine.
 
-This project implements a **decoupled, microservices-oriented architecture** to ensure robust performance:
+## Request flow
 
-- **API Layer**: Built with **FastAPI** to serve high-performance REST endpoints and interactive OpenAPI documentation.
-- **Asynchronous Task Queue**: Powered by **Celery**, using **RabbitMQ** as the message broker and **Redis** for the result backend. Heavy I/O bound tasks (LLM generation, vector embedding, and document chunking) are offloaded to background workers to guarantee non-blocking API performance.
-- **Vector Database**: Utilizes **PostgreSQL with the `pgvector` extension** (hosted on Supabase) for reliable vector storage and semantic search using cosine similarity.
-- **AI Integration**: Integrates Cohere for dense vector embeddings and Groq/OpenAI models for rapid text generation.
-- **Containerization**: Fully containerized environment via **Docker** and **Docker Compose**, separating application logic from infrastructure services for straightforward cloud deployment.
-
-## 🚀 Key Features
-
-- **True Asynchronous Processing**: Complete separation of API request handling and heavy AI task execution.
-- **High-Performance Semantic Search**: Native vector indexing and retrieval via pgvector.
-- **Stateless Core API**: Database, Cache, and Message Brokers are externally managed, making the API fully stateless and scalable.
-- **Ready for Cloud Deployment**: Pre-configured CI/CD workflows and decoupled infrastructure setup.
-
-## 🛠️ Tech Stack
-
-- **Backend Framework**: Python 3.10, FastAPI, Uvicorn, Pydantic
-- **AI Providers**: Cohere (Embeddings), Groq (Generation)
-- **Database**: PostgreSQL + pgvector (Supabase)
-- **Message Broker & Caching**: RabbitMQ (CloudAMQP), Redis (Upstash)
-- **DevOps & Monitoring**: Docker, Docker Compose, GitHub Actions, Prometheus, Nginx
-
-## 📂 Exact Project Structure
-
-```text
-RAG-System/
-├── .github/workflows/       # CI/CD pipelines for automated deployment
-├── docker/                  # Infrastructure configurations
-│   ├── env/                 # Environment variables for infrastructure
-│   ├── mongodb/             # MongoDB configurations
-│   ├── nginx/               # Reverse proxy settings
-│   ├── prometheus/          # Telemetry and monitoring setup
-│   ├── rabbitmq/            # Message broker configuration
-│   └── docker-compose.yml   # Spins up all local supporting services
-├── mongodb/                 # Database initialization scripts
-├── src/                     # Core Application logic
-│   ├── assets/              # Postman collections and static files
-│   ├── controllers/         # Endpoint request handling
-│   ├── helpers/             # Shared utility functions
-│   ├── models/              # Pydantic schemas and DB entities
-│   ├── routes/              # FastAPI route registrations
-│   ├── stores/              # Vector database interface implementations
-│   ├── tasks/               # Celery worker tasks
-│   ├── utils/               # App-wide utilities
-│   ├── main.py              # Application entry point
-│   ├── celery_app.py        # Celery initialization
-│   ├── flowerconfig.py      # Flower dashboard configuration
-│   └── requirements.txt     # Python dependencies
-└── README.md                # Project documentation
+```mermaid
+flowchart TD
+    A[Upload PDF or text] --> B[FastAPI]
+    B --> C[RabbitMQ and Celery]
+    C --> D[Chunks and embeddings]
+    D --> E[Vector store]
+    Q[Question] --> R[Vector retrieval]
+    E --> R
+    R --> G[Answer generation]
+    R --> X[Optional cross-encoder reranking]
+    X --> G
 ```
 
-## ⚙️ Environment Configuration
+Document processing and workflow indexing run in Celery. The search and answer endpoints execute within the API request; they are not background Celery jobs. Uploaded files live in a shared Docker volume.
 
-Create a `.env` file in the root directory to connect external services:
+## What is implemented
 
-```env
-# Database (Supabase)
-POSTGRES_USERNAME="postgres"
-POSTGRES_PASSWORD="<your_password>"
-POSTGRES_HOST="<your_supabase_host>"
-POSTGRES_PORT=5432
-POSTGRES_MAIN_DATABASE="postgres"
+- PDF and UTF-8 text ingestion, with project-specific files and chunks.
+- Background processing and indexing workflows with task IDs.
+- pgvector and Qdrant adapters, plus configurable embedding and generation providers.
+- English and Arabic prompt templates.
+- Flower task monitoring and a Compose stack with Prometheus and Grafana.
+- Optional page-aware overlapping chunks that preserve source metadata.
+- Separate reranked search and answer endpoints using a local CPU cross-encoder.
+- Paired retrieval evaluation with Recall@k, reciprocal rank at k, and latency.
 
-# AI Service Providers
-OPENAI_API_KEY="<your_groq_or_openai_key>"
-OPENAI_API_URL="[https://api.groq.com/openai/v1](https://api.groq.com/openai/v1)"
-COHERE_API_KEY="<your_cohere_key>"
+The reranked path is optional. It does not replace the existing endpoints or change existing indexes. Its benefit on a particular document set needs to be measured; there are no claimed quality improvements without an evaluation run.
 
-# Task Queue (CloudAMQP & Upstash)
-CELERY_BROKER_URL="<your_rabbitmq_url>"
-CELERY_RESULT_BACKEND="<your_redis_url>"
+## Run locally
 
-# Vector Search Configuration
-VECTOR_DB_BACKEND="PGVECTOR"
-VECTOR_DB_DISTANCE_METHOD="cosine"
-```
+Use Python 3.10 and Docker Compose. From the repository root, create the local configuration files from the examples if this is a new installation:
 
-## 🐳 Deployment & Execution
-
-**Containerized Execution:**
 ```bash
-cd src
-docker build -t rag-system-api .
-docker run -p 8000:8000 --env-file .env rag-system-api
+for service in app postgres rabbitmq redis grafana postgres-exporter; do
+    test -f "docker/env/.env.$service" || cp "docker/env/.env.example.$service" "docker/env/.env.$service"
+done
+test -f docker/minirag/alembic.ini || cp docker/minirag/alembic.example.ini docker/minirag/alembic.ini
 ```
-Access the interactive API documentation at `http://localhost:8000/docs`.
+
+Edit the copied files before starting. Keep PostgreSQL credentials consistent between the app and database settings. Likewise, the broker URL must match the RabbitMQ user, password and vhost, and the Redis URL must match the running Redis password. The Redis command in Compose uses shell substitution, so export `REDIS_PASSWORD` with the same value when needed. Configure valid model IDs and your own provider keys; example values are placeholders.
+
+An existing working installation can keep its current configuration.
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --build
+```
+
+Open [API documentation](http://localhost:8000/docs). Keep management ports local or behind appropriate access controls when deploying elsewhere; the example stack is intended for local development.
+
+## Use the API
+
+For one project ID, follow this order:
+
+1. Upload a file through `/api/v1/data/upload/{project_id}`.
+2. Call `/api/v1/data/process-and-push/{project_id}` and wait for processing and indexing to complete.
+3. Query `/api/v1/nlp/index/search/{project_id}` or `/api/v1/nlp/index/answer/{project_id}`.
+
+Use the same project ID for every step. A newly chosen ID has no indexed documents until its own processing workflow completes.
+
+The existing processing defaults remain `chunk_size=100`, `overlap_size=20`, and `chunk_strategy="legacy"`. The legacy splitter does not apply overlap. For new indexes, the optional `page_overlap` strategy applies real overlap and retains page metadata. See [retrieval setup and evaluation](docs/retrieval.md) for the complete example and trade-offs.
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `src/routes/` | HTTP endpoints and request schemas |
+| `src/controllers/` | Ingestion, retrieval and answer orchestration |
+| `src/tasks/` | Celery processing and indexing jobs |
+| `src/stores/` | LLM and vector-store provider adapters |
+| `src/models/` | Database models, queries and migrations |
+| `src/retrieval/` | Optional chunking, reranking and retrieval metrics |
+| `docker/` | Service configuration and container build |
+| `scripts/` | Model provisioning and evaluation commands |
+| `tests/` | Retrieval and compatibility tests |
+
+## Checks
+
+The lightweight checks run without model weights, provider keys or a database:
+
+```bash
+python -m pip install pydantic==2.11.10
+python -m unittest discover -s tests -v
+python -m compileall -q src scripts
+```
+
+GitHub Actions runs these checks on Python 3.10 and 3.12. These tests cover retrieval logic and compatibility contracts; a live Compose run is still needed to verify the complete deployment.
+
+## Dependencies and cost
+
+The core service dependencies remain pinned in `src/requirements.txt`. The optional reranker has a separate dependency file and explicit model download. It runs on CPU and does not require a paid inference service. Existing embedding and generation providers remain subject to their own quotas.
+
+The repository uses the Apache 2.0 license in [License](License). The optional cross-encoder is also distributed under Apache 2.0; its model card is downloaded alongside its weights.

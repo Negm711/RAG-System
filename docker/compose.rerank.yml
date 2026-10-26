@@ -1,0 +1,14 @@
+# Private optional service; no additional ports are published on the host.
+services:
+  fastapi:
+    environment:
+      RERANK_SERVICE_URL: http://reranker:8080
+  reranker:
+    build:
+      context: ..
+      dockerfile: docker/reranker.Dockerfile
+    volumes:
+      - fastapi_data:/app/assets
+    networks:
+      - backend
+    restart: unless-stopped

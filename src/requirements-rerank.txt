@@ -1,0 +1,4 @@
+# Optional CPU reranker. Keep separate from the existing application environment.
+transformers==4.57.6
+huggingface-hub==0.36.0
+safetensors==0.6.2

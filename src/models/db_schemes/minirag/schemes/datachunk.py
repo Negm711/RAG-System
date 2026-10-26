@@ -3,7 +3,8 @@ from sqlalchemy import Column, Integer, DateTime, func, String, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy import Index
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional
 import uuid
 
 class DataChunk(SQLAlchemyBase):
@@ -34,3 +35,5 @@ class DataChunk(SQLAlchemyBase):
 class RetrievedDocument(BaseModel):
     text: str
     score: float
+    chunk_id: Optional[str] = None
+    metadata: dict = Field(default_factory=dict)

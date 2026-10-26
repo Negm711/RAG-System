@@ -104,6 +104,8 @@ async def process_endpoint(request: Request, project_id: int, process_request: P
         chunk_size=chunk_size,
         overlap_size=overlap_size,
         do_reset=do_reset,
+        **({"chunk_strategy": process_request.chunk_strategy}
+           if process_request.chunk_strategy != "legacy" else {}),
     )
 
     return JSONResponse(
@@ -126,6 +128,8 @@ async def process_and_push_endpoint(request: Request, project_id: int, process_r
         chunk_size=chunk_size,
         overlap_size=overlap_size,
         do_reset=do_reset,
+        **({"chunk_strategy": process_request.chunk_strategy}
+           if process_request.chunk_strategy != "legacy" else {}),
     )
 
     return JSONResponse(

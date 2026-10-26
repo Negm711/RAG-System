@@ -150,6 +150,9 @@ class NLPController(BaseController):
         if not retrieved_documents or len(retrieved_documents) == 0:
             return answer, full_prompt, chat_history
 
+        return self.answer_from_documents(query, retrieved_documents)
+
+    def answer_from_documents(self, query, retrieved_documents):
         system_prompt = self.template_parser.get("rag", "system_prompt")
 
         documents_prompts = "\n".join(

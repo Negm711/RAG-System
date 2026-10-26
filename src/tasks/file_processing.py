@@ -21,15 +21,15 @@ logger = logging.getLogger(__name__)
 )
 def process_project_files(self, project_id: int, 
                           file_id: int, chunk_size: int,
-                          overlap_size: int, do_reset: int):
+                          overlap_size: int, do_reset: int, chunk_strategy: str = "legacy"):
     return asyncio.run(
         _process_project_files(self, project_id, file_id, chunk_size,
-                               overlap_size, do_reset)
+                               overlap_size, do_reset, chunk_strategy)
     )
 
 async def _process_project_files(task_instance, project_id: int, 
                                  file_id: int, chunk_size: int,
-                                 overlap_size: int, do_reset: int):
+                                 overlap_size: int, do_reset: int, chunk_strategy: str = "legacy"):
     db_engine, vectordb_client = None, None
     task_record = None
     
@@ -49,6 +49,9 @@ async def _process_project_files(task_instance, project_id: int,
             "do_reset": do_reset
         }
         
+        if chunk_strategy != "legacy":
+            task_args["chunk_strategy"] = chunk_strategy
+
         task_name = "tasks.file_processing.process_project_files"
         settings = get_settings()
 
@@ -180,7 +183,8 @@ async def _process_project_files(task_instance, project_id: int,
                 file_content=file_content,
                 file_id=file_id,
                 chunk_size=chunk_size,
-                overlap_size=overlap_size
+                overlap_size=overlap_size,
+                chunk_strategy=chunk_strategy,
             )
 
             if file_chunks is None or len(file_chunks) == 0:

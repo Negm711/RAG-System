@@ -36,10 +36,11 @@ def push_after_process_task(self, prev_task_result):
                 )
 def process_and_push_workflow(  self, project_id: int, 
                                 file_id: int, chunk_size: int,
-                                overlap_size: int, do_reset: int):
+                                overlap_size: int, do_reset: int, chunk_strategy: str = "legacy"):
 
     workflow = chain(
-        process_project_files.s(project_id, file_id, chunk_size, overlap_size, do_reset),
+        process_project_files.s(project_id, file_id, chunk_size, overlap_size, do_reset,
+                                **({"chunk_strategy": chunk_strategy} if chunk_strategy != "legacy" else {})),
         push_after_process_task.s()
     )
 

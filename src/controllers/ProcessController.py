@@ -60,7 +60,14 @@ class ProcessController(BaseController):
         file_id: str,
         chunk_size: int = 100,
         overlap_size: int = 20,
+        chunk_strategy: str = "legacy",
     ):
+
+        if chunk_strategy == "page_overlap":
+            from retrieval.chunking import split_pages
+            return split_pages(file_content or [], file_id, chunk_size, overlap_size)
+        if chunk_strategy != "legacy":
+            raise ValueError("Unknown chunk strategy")
 
         if not file_content:
             return []
